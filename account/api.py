@@ -7,7 +7,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
-from .forms import SignupForm
+from .forms import SignupForm, LoginSerializer
 import json
 from django.contrib.sites.shortcuts import get_current_site
 from django.urls import reverse
@@ -73,7 +73,8 @@ def signup(request):
     token = RefreshToken.for_user(acc).access_token
     current_site = get_current_site(request).domain
     relativeLink = reverse('email-verify')
-    absurl = 'http://'+current_site+relativeLink+"?token="+str(token)
+    #+current_site+relativeLink+
+    absurl = "http://localhost:3000/email-verify/?token="+str(token)  
     email_body = 'Hi '+user.name + \
         ' Use the link below to verify your email \n' + absurl
     data = {'email_body': email_body, 'to_email': user.email,
@@ -114,19 +115,32 @@ class VerifyEmail(APIView):
             return Response({'error': 'Activation expired'}, status=status.HTTP_400_BAD_REQUEST)
         except jwt.InvalidTokenError as e:
             return Response({'error': 'Invalid token', 'details': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-        
-class LogoutView(APIView):
-    permission_classes = (IsAuthenticated,)
 
+
+
+class LogoutView(APIView):
+    permission_classes = []
     def post(self, request):
         try:
-            refresh_token = request.data["refresh_token"]
+            refresh_token = request.data["refresh"]
             token = RefreshToken(refresh_token)
             token.blacklist()
-
             return Response(status=status.HTTP_205_RESET_CONTENT)
         except Exception as e:
             return Response(status=status.HTTP_400_BAD_REQUEST)
+        
+        
+
+@authentication_classes([])
+@permission_classes([])      
+class LoginAPIView(generics.GenericAPIView):
+    serializer_class = LoginSerializer
+
+    def post(self, request):
+        serializer = self.serializer_class(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
 
 @authentication_classes([])
 @permission_classes([])
@@ -146,10 +160,10 @@ class RequestPasswordResetEmail(generics.GenericAPIView):
             relativeLink = reverse(
                 'password-reset-confirm', kwargs={'uidb64': uidb64, 'token': token})
 
-            redirect_url = request.data.get('redirect_url', '')
-            absurl = 'http://'+current_site + relativeLink
+            # redirect_url = request.data.get('redirect_url', '')
+            absurl =  "http://localhost:3000" + relativeLink
             email_body = 'Hello, \n Use link below to reset your password  \n' + \
-                absurl+"?redirect_url="+redirect_url                        
+                absurl               
             data = {'email_body': email_body, 'to_email': user.email,
                     'email_subject': 'Reset your passsword'}
             Util.send_email(data)
