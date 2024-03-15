@@ -7,14 +7,14 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
-from .forms import SignupForm, LoginSerializer
+from .forms import SignupForm, LoginSerializer, ProfileForm
 import json
 from django.contrib.sites.shortcuts import get_current_site
 from django.urls import reverse
 from .utils import Util
 import jwt
 from django.conf import settings
-from .serializers import EmailVerificationSerializer,ResetPasswordEmailRequestSerializer,SetNewPasswordSerializer
+from .serializers import EmailVerificationSerializer,ResetPasswordEmailRequestSerializer,SetNewPasswordSerializer,UserSerializer
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 import json
@@ -217,3 +217,26 @@ class SetNewPasswordAPIView(generics.GenericAPIView):
         serializer = self.serializer_class(data=request.data)
         serializer.is_valid(raise_exception=True)
         return Response({'success': True, 'message': 'Password reset success'}, status=status.HTTP_200_OK)
+    
+    
+    
+    
+@api_view(['POST'])
+def editprofile(request):
+    user = request.user
+    email = request.data.get('email')
+    name = request.data.get('name')
+    
+    print(type(user), email, name)
+
+    if User.objects.exclude(id=user.id).filter(email=email).exists():
+        return JsonResponse({'message': 'email already exists'})
+    else:
+        form = ProfileForm(request.POST, request.FILES, instance=user)
+        if form.is_valid():
+            form.save() 
+            serializer = UserSerializer(user)
+            return JsonResponse({'message': 'information updated', 'user': serializer.data})
+        else:
+            return JsonResponse({'errors': form.errors}, status=400)
+        

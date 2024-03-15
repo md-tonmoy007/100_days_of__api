@@ -58,3 +58,9 @@ class LoginSerializer(serializers.ModelSerializer):
             'name': user.name,
             'token': user.tokens,
         }
+        
+        
+class ProfileForm(forms.ModelForm):
+    class Meta:
+        model = User
+        fields = ('email', 'name', 'avatar',)

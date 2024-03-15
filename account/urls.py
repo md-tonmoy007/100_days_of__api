@@ -18,4 +18,5 @@ urlpatterns = [
     path('login/', api.LoginAPIView.as_view(), name='token_obtain'),
     path('refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('logout/', api.LogoutView.as_view(), name='logout'),
+    path('editprofile/', api.editprofile, name='editprofile'),
 ]

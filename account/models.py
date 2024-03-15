@@ -4,6 +4,8 @@ from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin, UserM
 from django.db import models
 from django.utils import timezone
 from rest_framework_simplejwt.tokens import RefreshToken
+from django.conf import settings
+
 
 # Create your models here.
 class CustomUserManager(UserManager):
@@ -65,8 +67,9 @@ class User(AbstractBaseUser, PermissionsMixin):
     EMAIL_FIELD = 'email'
     REQUIRED_FIELDS = []
     
-    def __str__(self):
-        return self.email
+    USERNAME_FIELD = 'email'
+    EMAIL_FIELD = 'email'
+    REQUIRED_FIELDS = []
     
     def tokens(self):
         refresh = RefreshToken.for_user(self)
@@ -74,8 +77,8 @@ class User(AbstractBaseUser, PermissionsMixin):
             'refresh': str(refresh),
             'access': str(refresh.access_token)
         }
-    # def get_avatar(self):
-    #     if self.avatar:
-    #         return settings.WEBSITE_URL + self.avatar.url
-    #     else:
-    #         return 'https://picsum.photos/200/200'
+    def get_avatar(self):
+        if self.avatar:
+            return settings.WEBSITE_URL + self.avatar.url
+        else:
+            return 'https://picsum.photos/200/200'
