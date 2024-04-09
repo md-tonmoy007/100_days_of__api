@@ -5,6 +5,7 @@ from django.db import models
 from django.utils import timezone
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.conf import settings
+import random
 
 
 # Create your models here.
@@ -78,7 +79,8 @@ class User(AbstractBaseUser, PermissionsMixin):
             'access': str(refresh.access_token)
         }
     def get_avatar(self):
+        id = random.randint(0, 600)
         if self.avatar:
             return settings.WEBSITE_URL + self.avatar.url
         else:
-            return 'https://picsum.photos/200/200'
+            return f'https://picsum.photos/400/400'

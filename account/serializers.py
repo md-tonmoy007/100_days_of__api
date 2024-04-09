@@ -10,7 +10,7 @@ from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ('id', 'name', 'email', 'avatar')
+        fields = ('id', 'name', 'email', 'avatar', 'get_avatar')
 
 
 class EmailVerificationSerializer(serializers.ModelSerializer):
