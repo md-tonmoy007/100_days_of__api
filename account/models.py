@@ -6,7 +6,8 @@ from django.utils import timezone
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.conf import settings
 import random
-
+# from posts.models import Project
+from django.db import models
 
 # Create your models here.
 class CustomUserManager(UserManager):
@@ -54,6 +55,8 @@ class User(AbstractBaseUser, PermissionsMixin):
     is_active = models.BooleanField(default=True)
     is_superuser = models.BooleanField(default=False)
     is_staff = models.BooleanField(default=False)
+
+    project = models.ForeignKey('posts.Project', related_name='user', on_delete=models.CASCADE, null=True, blank=True)
 
     date_joined = models.DateTimeField(default=timezone.now)
     last_login = models.DateTimeField(blank=True, null=True)

@@ -44,7 +44,8 @@ class Project(models.Model):
     name = models.TextField(blank=True, null=False)
     description = models.TextField(blank=True, null=True)
 
-    created_by = models.ForeignKey(User, related_name='project', on_delete=models.CASCADE, null=True, default=None)
+    number = models.IntegerField(default=0)
+
 
 
 
@@ -72,4 +73,10 @@ class Post(models.Model):
     def created_at_formatted(self):
        return timesince(self.created_at)
    
+
+'''
+    Every time a user creates a post. We will add +1 to the project which was selected.
+    then we will sort it according to number of the project
+    top 5 projects will on trends.
+'''
    
