@@ -11,4 +11,5 @@ urlpatterns = [
     path('<str:pk>/comment/', api.post_create_comment, name='post_create_comment'),
     path('<str:pk>/comment_show/', api.comment_show, name='comment_show'),
     path('project/create/', api.project_create, name='project create'),
+    path('trending/', api.trending, name='trending'),
 ]

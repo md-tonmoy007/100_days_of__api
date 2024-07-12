@@ -1,12 +1,12 @@
 from django.http import JsonResponse
-from rest_framework.decorators import api_view, authentication_classes, permission_classes
-from .models import User
-from rest_framework.views import APIView
-from rest_framework import generics
-from rest_framework_simplejwt.tokens import RefreshToken
-from rest_framework.response import Response
-from rest_framework import status
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.decorators import api_view, authentication_classes, permission_classes  # type: ignore
+from .models import *
+from rest_framework.views import APIView # type: ignore
+from rest_framework import generics # type: ignore
+from rest_framework_simplejwt.tokens import RefreshToken # type: ignore # type: ignore
+from rest_framework.response import Response # type: ignore
+from rest_framework import status # type: ignore
+from rest_framework.permissions import IsAuthenticated # type: ignore
 from .forms import SignupForm, LoginSerializer, ProfileForm
 import json
 from django.contrib.sites.shortcuts import get_current_site
@@ -14,9 +14,9 @@ from django.urls import reverse
 from .utils import Util
 import jwt
 from django.conf import settings
-from .serializers import EmailVerificationSerializer,ResetPasswordEmailRequestSerializer,SetNewPasswordSerializer,UserSerializer
-from drf_yasg.utils import swagger_auto_schema
-from drf_yasg import openapi
+from .serializers import EmailVerificationSerializer,ResetPasswordEmailRequestSerializer,SetNewPasswordSerializer,UserSerializer, FriendshipRequestSerializer
+from drf_yasg.utils import swagger_auto_schema # type: ignore
+from drf_yasg import openapi # type: ignore
 import json
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.utils.encoding import smart_str, force_str, smart_bytes, DjangoUnicodeDecodeError
@@ -24,10 +24,16 @@ from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 
 @api_view(['GET'])
 def me(request):
+    user_serializer = UserSerializer(request.user)
     return JsonResponse({
-        'id': request.user.id,
-        'name': request.user.name,
-        'email': request.user.email,
+        'user': user_serializer.data,
+    })
+    
+    
+@api_view(['GET'])
+def authenticated(request):
+    return JsonResponse({
+        'authenticated': request.user.is_authenticated,
     })
 
 @api_view(['POST'])
@@ -240,3 +246,68 @@ def editprofile(request):
         else:
             return JsonResponse({'errors': form.errors}, status=400)
         
+        
+@api_view(['GET'])
+def friends(request, pk):
+    user = User.objects.get(pk=pk)
+    requests = []
+
+    if user == request.user:
+        requests = FriendshipRequest.objects.filter(created_for=request.user, status=FriendshipRequest.SENT)
+        requests = FriendshipRequestSerializer(requests, many=True)
+        requests = requests.data
+
+    friends = user.friends.all()
+
+    return JsonResponse({
+        'user': UserSerializer(user).data,
+        'friends': UserSerializer(friends, many=True).data,
+        'requests': requests
+    }, safe=False)
+        
+
+        
+@api_view(['POST'])
+def send_friendship_request(request, pk):
+    user = User.objects.get(pk=pk)
+
+    check1 = FriendshipRequest.objects.filter(created_for=request.user).filter(created_by=user)
+    check2 = FriendshipRequest.objects.filter(created_for=user).filter(created_by=request.user)
+
+    if not check1 or not check2:
+        friendrequest = FriendshipRequest.objects.create(created_for=user, created_by=request.user)
+       
+
+        return JsonResponse({'message': 'friendship request created'})
+    else:
+        return JsonResponse({'message': 'request already sent'})
+    
+    
+@api_view(['POST'])
+def handle_request(request, pk, status):
+    # # user = User.objects.get(pk=pk)
+    # # print(user.email)
+    # print(request.user)
+    friendship_request = FriendshipRequest.objects.get(pk=pk)
+    user1 = friendship_request.created_for
+    user2 = friendship_request.created_by
+    print(friendship_request)
+    print("\nemails:", request.user.email, user1.email, user2.email)
+    if request.user.email == user1.email:
+        print("hello world")
+        friendship_request.status = status
+        friendship_request.save()
+
+    if friendship_request.status != 'accepted':
+        user1.friends.add(user2)
+        user1.friends_count = user1.friends_count + 1
+        user1.save()
+
+        # request_user = request.user
+        user2.friends_count = user2.friends_count + 1
+        user2.save()
+        JsonResponse({'message': 'not friends'})
+        
+
+
+    return JsonResponse({'message': 'friendship request updated'})

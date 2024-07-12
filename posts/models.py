@@ -41,11 +41,17 @@ class Project(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
-    name = models.TextField(blank=True, null=False)
+    name = models.TextField(blank=True, null=False, unique=True)
     description = models.TextField(blank=True, null=True)
 
     number = models.IntegerField(default=0)
-
+    
+    def __str__(self):
+        return self.name # TODO
+    
+    class Meta:
+        ordering = ('-number',)
+    
 
 
 

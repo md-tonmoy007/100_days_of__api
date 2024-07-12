@@ -1,5 +1,5 @@
 from django.urls import path
-from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView # type: ignore
 
 
 from . import api
@@ -7,6 +7,7 @@ from . import api
 
 urlpatterns = [
     path('me/', api.me, name='me'),
+    path('authenticated/', api.authenticated, name='authenticated'),
     path('signup/', api.signup, name='signup'),
     path('email-verify/', api.VerifyEmail.as_view(), name="email-verify"),
     path('request-reset-email/', api.RequestPasswordResetEmail.as_view(),
@@ -19,4 +20,7 @@ urlpatterns = [
     path('refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('logout/', api.LogoutView.as_view(), name='logout'),
     path('editprofile/', api.editprofile, name='editprofile'),
+    path('friends/<uuid:pk>/', api.friends, name='friends'),
+    path('friends/<uuid:pk>/request/', api.send_friendship_request, name='send_friendship_request'),
+    path('friends/<uuid:pk>/<str:status>/', api.handle_request, name='handle_request'),
 ]

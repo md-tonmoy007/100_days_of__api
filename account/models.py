@@ -3,7 +3,7 @@ import uuid
 from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin, UserManager
 from django.db import models
 from django.utils import timezone
-from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.tokens import RefreshToken # type: ignore
 from django.conf import settings
 import random
 # from posts.models import Project
@@ -87,3 +87,23 @@ class User(AbstractBaseUser, PermissionsMixin):
             return settings.WEBSITE_URL + self.avatar.url
         else:
             return f'https://picsum.photos/400/400'
+        
+        
+        
+
+class FriendshipRequest(models.Model):
+    SENT = 'sent'
+    ACCEPTED = 'accepted'
+    REJECTED = 'rejected'
+
+    STATUS_CHOICES = (
+        (SENT, 'Sent'),
+        (ACCEPTED, 'Accepted'),
+        (REJECTED, 'Rejected'),
+    )
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    created_for = models.ForeignKey(User, related_name='received_friendshiprequests', on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+    created_by = models.ForeignKey(User, related_name='created_friendshiprequests', on_delete=models.CASCADE)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=SENT)

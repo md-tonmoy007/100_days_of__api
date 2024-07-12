@@ -18,6 +18,6 @@ class AttachmentForm(ModelForm):
 class ProjectForm(ModelForm):
     class Meta:
         model = Project
-        fields = ('name', 'description')
+        fields = ('name',)
 
 

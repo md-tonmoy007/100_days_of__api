@@ -2,7 +2,7 @@ from django.db.models import Q
 from django.http import JsonResponse
 from account.serializers import UserSerializer
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
-from .serializers import PostSerializer, CommentSerializer
+from .serializers import PostSerializer, CommentSerializer, ProjectSerializer
 from .models import Post, Like, Comment, Project
 from account.models import User
 from .forms import PostForm, AttachmentForm, ProjectForm
@@ -149,6 +149,11 @@ def project_create(request):
     return JsonResponse({'message': 'hola'})
 
 
-
+@api_view(['GET'])
+def trending(request):
+    projects = Project.objects.all()
+    projects = projects[0:5]
+    serializer = ProjectSerializer(projects, many=True)
+    return JsonResponse(serializer.data, safe=False)
 
     

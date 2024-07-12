@@ -1,7 +1,7 @@
 
-from rest_framework import serializers
-from .models import User
-from rest_framework.exceptions import AuthenticationFailed
+from rest_framework import serializers # type: ignore
+from .models import *
+from rest_framework.exceptions import AuthenticationFailed # type: ignore
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.utils.encoding import smart_str, force_str, smart_bytes, DjangoUnicodeDecodeError
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
@@ -10,7 +10,7 @@ from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ('id', 'name', 'email', 'avatar', 'get_avatar')
+        fields = ('id', 'name', 'email', 'friends_count', 'avatar', 'get_avatar')
 
 
 class EmailVerificationSerializer(serializers.ModelSerializer):
@@ -60,3 +60,15 @@ class SetNewPasswordSerializer(serializers.Serializer):
         except Exception as e:
             raise AuthenticationFailed('The reset link is invalid', 401)
         return super().validate(attrs)
+    
+    
+    
+    
+    
+
+class FriendshipRequestSerializer(serializers.ModelSerializer):
+    created_by = UserSerializer(read_only=True)
+    
+    class Meta:
+        model = FriendshipRequest
+        fields = ('id', 'created_by',)
