@@ -60,7 +60,7 @@ class Post(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     body = models.TextField(blank=True, null=True)
 
-    attachments = models.ManyToManyField(PostAttachment, blank=True)
+    # attachments = models.ManyToManyField(PostAttachment, blank=True)
     likes = models.ManyToManyField(Like, blank=True)
     likes_count = models.IntegerField(default=0)
 
@@ -68,8 +68,8 @@ class Post(models.Model):
     comments_count = models.IntegerField(default=0)
 
     created_at = models.DateTimeField(auto_now_add=True)
-    created_by = models.ForeignKey(User, related_name='posts', on_delete=models.CASCADE,)
-    project = models.ForeignKey(Project, related_name='posts', on_delete=models.CASCADE, default='f1ea2dfe-ae3f-4088-964f-5400121967b4')
+    created_by = models.ForeignKey(User, related_name='posts', on_delete=models.CASCADE, db_constraint=False)
+    # project = models.ForeignKey(Project, related_name='posts', on_delete=models.CASCADE, default='f1ea2dfe-ae3f-4088-964f-5400121967b4')
     
 
 

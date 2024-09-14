@@ -1,4 +1,5 @@
 from django.db.models import Q
+# from rest_framework.generics import ListAPIView
 from django.http import JsonResponse
 from account.serializers import UserSerializer
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
@@ -9,57 +10,66 @@ from .forms import PostForm, AttachmentForm, ProjectForm
 from rest_framework import status
 
 
-
-@api_view(['GET'])
-@authentication_classes([])
-@permission_classes([]) 
-def post_list(request):
-
-
-    posts = Post.objects.all()
-
-
-    serializer = PostSerializer(posts, many=True)
-
-    return JsonResponse(serializer.data, safe=False)
-
-
 @api_view(['GET'])
 @authentication_classes([])
 @permission_classes([])
-def post_list_profile(request, id):   
-    user = User.objects.get(pk=id)
-    posts = Post.objects.filter(created_by_id=id)
-    
-    posts_serializer = PostSerializer(posts, many=True)
-    user_serializer = UserSerializer(user)
-    
-    return JsonResponse({
-        'posts': posts_serializer.data,
-        'user': user_serializer.data,
-        # 'message': name,
-    }, safe=False)
-    
+def post_list(request):
+    posts = Post.objects.all()
+    serializer = PostSerializer(posts, many=True)
+    return JsonResponse(serializer.data, safe=False)
+
+@api_view(['GET'])
+def post_detail(request, pk):
+    liked = ""
+    try:
+        post = Post.objects.get(pk=pk)
+        user = post.created_by
+        
+        if post.likes.filter(created_by=request.user).exists():
+            liked = 1
+        else:
+            liked = 0
+
+        post_serializer = PostSerializer(post)
+        # user_serializer = UserSerializer(user)
+
+        return JsonResponse({
+            'post': post_serializer.data,
+            'liked': liked,
+            # 'user': user_serializer.data
+        }, safe=False)
+
+    except Post.DoesNotExist:
+        return JsonResponse({'error': 'Post not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+
+
+
+
 
 
 @api_view(['POST'])
 def post_create(request):
     form = PostForm(request.POST)
-    attachment = None
-    attachment_form = AttachmentForm(request.POST, request.FILES)
+    # attachment = None
+    # attachment_form = AttachmentForm(request.POST, request.FILES)
 
-    if attachment_form.is_valid():
-        attachment = attachment_form.save(commit=False)
-        attachment.created_by = request.user
-        attachment.save()
+    # if attachment_form.is_valid():
+    #     attachment = attachment_form.save(commit=False)
+    #     attachment.created_by = request.user
+    #     attachment.save()
 
     if form.is_valid():
         post = form.save(commit=False)
         post.created_by = request.user
         post.save()
 
-        if attachment:
-            post.attachments.add(attachment)
+        # if attachment:
+        #     post.attachments.add(attachment)
 
         user = request.user
         user.posts_count = user.posts_count + 1
@@ -89,6 +99,16 @@ def post_delete(request, pk):
 def post_like(request, pk):
     post = Post.objects.get(pk=pk)
     print("Hello")
+    if post.likes.filter(created_by=request.user).exists():
+        like = Like.objects.get(created_by=request.user)
+        post.likes_count = post.likes_count - 1
+        post.likes.remove(like)
+        post.save()
+        like.delete()
+        return JsonResponse({'message': 'like deleted'})    
+        
+        
+        
     if not post.likes.filter(created_by=request.user):
         like = Like.objects.create(created_by=request.user)
 

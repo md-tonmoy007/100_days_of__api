@@ -86,7 +86,7 @@ class User(AbstractBaseUser, PermissionsMixin):
         if self.avatar:
             return settings.WEBSITE_URL + self.avatar.url
         else:
-            return f'https://picsum.photos/400/400'
+            return settings.WEBSITE_URL + "/media/avatars/no-avatar.jpeg"
         
         
         

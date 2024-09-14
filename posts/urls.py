@@ -4,7 +4,8 @@ import uuid
 
 urlpatterns = [
     path('', api.post_list, name='post_list'),
-    path('profile/<str:id>/', api.post_list_profile, name='post_list_profile'),
+    path('post/<str:pk>/', api.post_detail, name='post_detail'),
+    
     path('create/', api.post_create, name='post_create'),
     path('<str:pk>/like/', api.post_like, name='post_like'),
     path('<uuid:pk>/delete/', api.post_delete, name='post_delete'),

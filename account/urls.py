@@ -7,6 +7,7 @@ from . import api
 
 urlpatterns = [
     path('me/', api.me, name='me'),
+    path('posts/profile/<str:id>/', api.post_list_profile, name='post_list_profile'),
     path('authenticated/', api.authenticated, name='authenticated'),
     path('signup/', api.signup, name='signup'),
     path('email-verify/', api.VerifyEmail.as_view(), name="email-verify"),
@@ -23,4 +24,5 @@ urlpatterns = [
     path('friends/<uuid:pk>/', api.friends, name='friends'),
     path('friends/<uuid:pk>/request/', api.send_friendship_request, name='send_friendship_request'),
     path('friends/<uuid:pk>/<str:status>/', api.handle_request, name='handle_request'),
+    path('friends/profile/<uuid:pk>/<str:status>/', api.handle_request_profile, name='handle_request_profile'),
 ]
