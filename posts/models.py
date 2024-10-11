@@ -7,6 +7,8 @@ from django.utils.timesince import timesince
 
 from account.models import User
 import datetime
+from django.db.models.signals import post_save
+from django.dispatch import receiver
 # Create your models here.
 
 class PostAttachment(models.Model):
@@ -42,7 +44,6 @@ class Project(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     name = models.TextField(blank=True, null=False, unique=True)
-    description = models.TextField(blank=True, null=True)
 
     number = models.IntegerField(default=0)
     
@@ -69,7 +70,7 @@ class Post(models.Model):
 
     created_at = models.DateTimeField(auto_now_add=True)
     created_by = models.ForeignKey(User, related_name='posts', on_delete=models.CASCADE, db_constraint=False)
-    # project = models.ForeignKey(Project, related_name='posts', on_delete=models.CASCADE, default='f1ea2dfe-ae3f-4088-964f-5400121967b4')
+    project = models.ForeignKey(Project, related_name='projects', on_delete=models.CASCADE, default='f1ea2dfe-ae3f-4088-964f-5400121967b4')
     
 
 
@@ -79,6 +80,13 @@ class Post(models.Model):
     def created_at_formatted(self):
        return timesince(self.created_at)
    
+   
+@receiver(post_save, sender=Post)
+def increment_project_post_count(sender, instance, created, **kwargs):
+    if created:
+        project = instance.project
+        project.number += 1
+        project.save()
 
 '''
     Every time a user creates a post. We will add +1 to the project which was selected.

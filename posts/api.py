@@ -1,13 +1,16 @@
 from django.db.models import Q
 # from rest_framework.generics import ListAPIView
 from django.http import JsonResponse
+from rest_framework.views import APIView
+from rest_framework.response import Response
 from account.serializers import UserSerializer
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
 from .serializers import PostSerializer, CommentSerializer, ProjectSerializer
 from .models import Post, Like, Comment, Project
 from account.models import User
 from .forms import PostForm, AttachmentForm, ProjectForm
-from rest_framework import status
+from rest_framework import status, viewsets  
+from rest_framework.permissions import AllowAny
 
 
 @api_view(['GET'])
@@ -17,6 +20,13 @@ def post_list(request):
     posts = Post.objects.all()
     serializer = PostSerializer(posts, many=True)
     return JsonResponse(serializer.data, safe=False)
+
+
+class PostViewSet(viewsets.ModelViewSet):
+    queryset = Post.objects.all()
+    serializer_class = PostSerializer
+    authentication_classes = []  # Disable authentication
+    permission_classes = [AllowAny]
 
 @api_view(['GET'])
 def post_detail(request, pk):
@@ -54,7 +64,19 @@ def post_detail(request, pk):
 
 @api_view(['POST'])
 def post_create(request):
-    form = PostForm(request.POST)
+    # form = PostForm(request.POST)
+    body = request.data.get('body')  # Retrieve body from JSON data
+    tag = request.data.get('tag')    # Retrieve tag from JSON data
+    
+    
+    try:
+        list_tag = Project(name=tag)
+        
+    except:
+        pass
+    
+    print(f"Body: {body}, Tag: {tag}")  # Check the received values
+    return Response({'message': 'Post created successfully!'})
     # attachment = None
     # attachment_form = AttachmentForm(request.POST, request.FILES)
 
@@ -63,23 +85,23 @@ def post_create(request):
     #     attachment.created_by = request.user
     #     attachment.save()
 
-    if form.is_valid():
-        post = form.save(commit=False)
-        post.created_by = request.user
-        post.save()
+    # if form.is_valid():
+    #     post = form.save(commit=False)
+    #     post.created_by = request.user
+    #     post.save()
 
-        # if attachment:
-        #     post.attachments.add(attachment)
+    #     # if attachment:
+    #     #     post.attachments.add(attachment)
 
-        user = request.user
-        user.posts_count = user.posts_count + 1
-        user.save()
+    #     user = request.user
+    #     user.posts_count = user.posts_count + 1
+    #     user.save()
 
-        serializer = PostSerializer(post)
+    #     serializer = PostSerializer(post)
 
-        return JsonResponse(serializer.data, safe=False)
-    else:
-        return JsonResponse({'error': 'add somehting here later!...'})
+    #     return JsonResponse(serializer.data, safe=False)
+    # else:
+    #     return JsonResponse({'error': 'add somehting here later!...'})
     
     
     
