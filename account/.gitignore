@@ -123,3 +123,28 @@ venv.bak/
 .mypy_cache/
 .dmypy.json
 dmypy.json
+
+
+# remove pycache
+**/__pycache__/
+
+# Django specific:
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+media
+staticfiles
+static/
+.env
+.env.*
+
+# Django migrations
+**/migrations/*.pyc
+**/migrations/*.pyo
+**/migrations/__pycache__/
+**/migrations/0001_initial.py
+**/migrations/0002_*.py
+
+# Django secret key file
+secret_key.txt
