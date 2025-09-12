@@ -3,6 +3,7 @@ from django.contrib import admin
 # Register your models here.
 from .models import  *
 
+admin.site.register(Thread)
 admin.site.register(Post)
 admin.site.register(PostAttachment)
 admin.site.register(Comment)

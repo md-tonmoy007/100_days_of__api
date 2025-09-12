@@ -6,10 +6,10 @@ from . import api
 
 
 urlpatterns = [
-    path('me/', api.me, name='me'),
+    path('me/', api.MeAPIView.as_view(), name='me'),
     path('posts/profile/<str:id>/', api.post_list_profile, name='post_list_profile'),
     path('authenticated/', api.authenticated, name='authenticated'),
-    path('signup/', api.signup, name='signup'),
+    path('signup/', api.SignupView.as_view(), name='signup'),
     path('email-verify/', api.VerifyEmail.as_view(), name="email-verify"),
     path('request-reset-email/', api.RequestPasswordResetEmail.as_view(),
          name="request-reset-email"),
@@ -21,8 +21,9 @@ urlpatterns = [
     path('refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('logout/', api.LogoutView.as_view(), name='logout'),
     path('editprofile/', api.editprofile, name='editprofile'),
-    path('friends/<uuid:pk>/', api.friends, name='friends'),
-    path('friends/<uuid:pk>/request/', api.send_friendship_request, name='send_friendship_request'),
-    path('friends/<uuid:pk>/<str:status>/', api.handle_request, name='handle_request'),
-    path('friends/profile/<uuid:pk>/<str:status>/', api.handle_request_profile, name='handle_request_profile'),
+     path('friends/<uuid:pk>/', api.friends, name='friends'),
+     path('friends/<uuid:pk>/request/', api.send_friendship_request, name='send_friendship_request'),
+     path('friends/<uuid:pk>/cancel/', api.cancel_friendship_request, name='cancel_friendship_request'),
+     path('friends/<uuid:pk>/<str:status>/', api.handle_request, name='handle_request'),
+     path('friends/profile/<uuid:pk>/<str:status>/', api.handle_request_profile, name='handle_request_profile'),
 ]

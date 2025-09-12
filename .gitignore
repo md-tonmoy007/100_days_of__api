@@ -151,3 +151,4 @@ secret_key.txt
 
 
 .apiEnv/
+.venv

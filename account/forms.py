@@ -13,7 +13,12 @@ class SignupForm(UserCreationForm):
         fields = ('email', 'name', 'password1', 'password2')
         
         
-        
+class SignupSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    name = serializers.CharField(max_length=100)
+    password1 = serializers.CharField(write_only=True)
+    password2 = serializers.CharField(write_only=True)   
+      
 
 class LoginSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(max_length=255, min_length=3)

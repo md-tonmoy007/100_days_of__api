@@ -8,8 +8,8 @@ from rest_framework import generics # type: ignore
 from rest_framework_simplejwt.tokens import RefreshToken # type: ignore # type: ignore
 from rest_framework.response import Response # type: ignore
 from rest_framework import status # type: ignore
-from rest_framework.permissions import IsAuthenticated # type: ignore
-from .forms import SignupForm, LoginSerializer, ProfileForm
+from rest_framework.permissions import IsAuthenticated, AllowAny # type: ignore
+from .forms import SignupForm, LoginSerializer, ProfileForm, SignupSerializer
 import json
 from django.contrib.sites.shortcuts import get_current_site
 from django.urls import reverse
@@ -26,12 +26,17 @@ from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 from django.core.exceptions import ObjectDoesNotExist
 
 
-@api_view(['GET'])
-def me(request):
-    user_serializer = UserSerializer(request.user)
-    return JsonResponse({
-        'user': user_serializer.data,
-    })
+class MeAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request):
+        user_serializer = UserSerializer(request.user)
+        return Response({
+            'user': user_serializer.data,   
+        })
+    
+
+
     
 @api_view(['GET'])
 def post_list_profile(request, id):   
@@ -113,64 +118,66 @@ def authenticated(request):
         'authenticated': request.user.is_authenticated,
     })
 
-@api_view(['POST'])
-@authentication_classes([])
-@permission_classes([])
-def signup(request):
-    data = request.data
-    message = 'success'
-    
-    
-    form = SignupForm({
-        'email': data.get('email'),
-        'name': data.get('name'),
-        'password1': data.get('password1'),
-        'password2': data.get('password2'),
-    })
-    
-    
-    if form.is_valid():
-        user = form.save()
-        
 
-    else:
-        print(form.errors.as_json())
-        message = "error"
-    
-        form_errors = form.errors.as_json()
 
-        json_response = json.loads(form_errors)
-        messages_only = {}
-        first_error_message = next((error["message"] for errors in json_response.values() for error in errors), None)
-        
-        return JsonResponse(
-        {
-            'status': message,
-                'messages': first_error_message,
-            
-            }
-        )
-        
-        
-    acc = User.objects.get(email=user.email)
-    token = RefreshToken.for_user(acc).access_token
-    current_site = get_current_site(request).domain
-    relativeLink = reverse('email-verify')
-    #+current_site+relativeLink+
-    absurl = "http://localhost:3000/email-verify/?token="+str(token)  
-    email_body = 'Hi '+user.name + \
-        ' Use the link below to verify your email \n' + absurl
-    data = {'email_body': email_body, 'to_email': user.email,
-            'email_subject': 'Verify your email'}
+
+class SignupView(APIView):
+    authentication_classes = []
+    permission_classes = [AllowAny]
+    serializer_class = SignupSerializer  # Add this for documentation
+
     
-    
-    Util.send_email(data)
-    
-    return JsonResponse({
-            'status': message,
-            'email': user.email,
-            'name': user.name,
+    def post(self, request):
+        serializer = SignupSerializer(data=request.data)
+        data = request.data
+        message = 'success'
+        
+        form = SignupForm({
+            'email': data.get('email'),
+            'name': data.get('name'),
+            'password1': data.get('password1'),
+            'password2': data.get('password2'),
         })
+        
+        if form.is_valid():
+            user = form.save()
+            
+            # Get user and generate token
+            acc = User.objects.get(email=user.email)
+            token = RefreshToken.for_user(acc).access_token
+            current_site = get_current_site(request).domain
+            relativeLink = reverse('email-verify')
+            absurl = f"http://localhost:3000/email-verify/?token={str(token)}"
+            
+            email_body = f'Hi {user.name} Use the link below to verify your email \n{absurl}'
+            email_data = {
+                'email_body': email_body,
+                'to_email': user.email,
+                'email_subject': 'Verify your email'
+            }
+            
+            Util.send_email(email_data)
+            
+            return Response({
+                'status': message,
+                'email': user.email,
+                'name': user.name,
+            })
+        
+        else:
+            print(form.errors.as_json())
+            message = "error"
+            form_errors = form.errors.as_json()
+            json_response = json.loads(form_errors)
+            first_error_message = next(
+                (error["message"] for errors in json_response.values() for error in errors), 
+                None
+            )
+            
+            return Response({
+                'status': message,
+                'messages': first_error_message,
+            })
     
     
 @authentication_classes([])
@@ -446,3 +453,20 @@ def handle_request_profile(request, pk, status):
 
 
     return JsonResponse({'message': 'friendship request updated'})
+
+
+
+@api_view(['POST'])
+def cancel_friendship_request(request, pk):
+    """
+    Cancel a sent friendship request (delete the request if it was sent by the current user and is still pending).
+    """
+    try:
+        # Find the pending request sent by the current user to the user with id=pk
+        friend_request = FriendshipRequest.objects.get(created_by=request.user, created_for__id=pk, status=FriendshipRequest.SENT)
+        friend_request.delete()
+        return JsonResponse({'message': 'Friendship request cancelled.'}, status=200)
+    except FriendshipRequest.DoesNotExist:
+        return JsonResponse({'error': 'No pending request found to cancel.'}, status=404)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
