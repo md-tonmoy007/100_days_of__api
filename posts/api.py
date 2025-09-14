@@ -231,10 +231,10 @@ def thread_detail(request, pk):
     try:
         thread = Thread.objects.get(pk=pk, is_active=True)
         
-        # Get thread posts
+        # Get thread posts sorted by day number (ascending)
         posts = Post.objects.filter(
             user_thread__thread=thread
-        ).order_by('-created_at')[:20]  # Limit to recent posts
+        ).order_by('day_number', 'created_at')  # Sort by day number first, then by creation time
         
         # Check if user is in this thread
         user_thread = None

@@ -41,7 +41,11 @@ class MeAPIView(APIView):
 @api_view(['GET'])
 def post_list_profile(request, id):   
     user = User.objects.get(pk=id)
-    posts = Post.objects.filter(created_by_id=id)
+    # Get user's threads instead of individual posts
+    from posts.models import UserThread
+    from posts.serializers import UserThreadSerializer
+    
+    user_threads = UserThread.objects.filter(user=user).order_by('-started_at')
     is_my_profile = str(request.user.id) == id
     status = "not_friends"
 
@@ -65,48 +69,14 @@ def post_list_profile(request, id):
             frnd_requests = None  # or handle it in another way
             status = "add friend"
 
-    
-    
-    
-    
-    
-    
-
-    
-    posts_serializer = PostSerializer(posts, many=True)
+    user_threads_serializer = UserThreadSerializer(user_threads, many=True)
     user_serializer = UserSerializer(user)
-    # request_status = FriendshipRequestSerializer(check, many=True)
-    # print(frnd_requests1.data[0]['status'])
-    
-    # if not is_my_profile:
-    #     if  frnd_requests != None:
-    #         status = "add friend"
-            
-    #         try:
-    #             # status = str(request_status.data[0]['status'])
-                
-    #             print(frnd_requests2.status)
-    #             if (frnd_requests1 and frnd_requests1.status == 'accepted') or (frnd_requests2 and frnd_requests2.status == 'accepted'):
-    #                 status = "Friends"
-    #                 print("aldkfjasdlkfj")
-    #             elif frnd_requests1.status == 'sent':
-    #                 status = "Accept request"
-    #                 print("alksdfjasdlkfjasdfjalskdjflaksdjf")
-    #             elif frnd_requests2.status == 'sent':
-    #                 status = "Request sent"
-    #                 print("alksdfjalksdjflkasjdflkajsdlfkjasdlkkfjskldkjflkaskdjf")
-
-                
-    #         except :
-    #             status =   "something went wrong"
-    
     
     return JsonResponse({
-        'posts': posts_serializer.data,
+        'user_threads': user_threads_serializer.data,
         'user': user_serializer.data,   
         'my_profile': is_my_profile,
         'status': status,
-        # 'message': name,
     }, safe=False)
     
 
