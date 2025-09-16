@@ -1,9 +1,10 @@
 from django.http import JsonResponse
-from django.db.models import Q
+from django.db.models import Q, Count, Max
 from django.utils import timezone
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework import status, viewsets
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
+from django.core.paginator import Paginator
 from .serializers import (
     PostSerializer, CommentSerializer, ProjectSerializer,
     ThreadSerializer, UserThreadSerializer, ThreadCreateSerializer,
@@ -11,12 +12,148 @@ from .serializers import (
 )
 from .models import Post, Like, Comment, Project, Thread, UserThread
 
-# List all posts
+# List all posts with pagination and personalized feed filtering
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def post_list(request):
-    posts = Post.objects.all()
-    serializer = PostSerializer(posts, many=True)
-    return JsonResponse(serializer.data, safe=False)
+    try:
+        # Get pagination parameters
+        page = int(request.GET.get('page', 1))
+        limit = int(request.GET.get('limit', 10))  # Default 10 posts per page
+        
+        # Ensure reasonable limits
+        limit = min(limit, 50)  # Max 50 posts per request
+        
+        # Get the current user
+        if not request.user.is_authenticated:
+            return JsonResponse({'error': 'Authentication required'}, status=401)
+        
+        current_user = request.user
+        
+        # Build personalized feed query based on conditions:
+        # 1. User's own posts
+        # 2. Posts from threads the user has joined
+        # 3. Posts from friends
+        
+        # Condition 1: User's own posts
+        own_posts_query = Q(created_by=current_user)
+        
+        # Condition 2: Posts from threads the user has joined
+        # Get all threads the user has joined
+        user_threads = UserThread.objects.filter(
+            user=current_user, 
+            is_active=True
+        ).values_list('thread_id', flat=True)
+        
+        # Get posts from these threads (from any user in those threads)
+        thread_posts_query = Q(user_thread__thread_id__in=user_threads)
+        
+        # Condition 3: Posts from friends
+        # Get all friends of the current user
+        friends = current_user.friends.all().values_list('id', flat=True)
+        friends_posts_query = Q(created_by__id__in=friends)
+        
+        # Combine all conditions with OR
+        feed_query = own_posts_query | thread_posts_query | friends_posts_query
+        
+        # Get filtered posts ordered by creation date (newest first)
+        # Use select_related and prefetch_related for optimization
+        posts_queryset = Post.objects.filter(feed_query).select_related(
+            'created_by', 'user_thread__thread'
+        ).prefetch_related(
+            'likes', 'comments'
+        ).order_by('-created_at').distinct()
+        
+        # Debug information
+        total_posts_before_filter = Post.objects.count()
+        filtered_posts_count = posts_queryset.count()
+        
+        print(f"DEBUG: User {current_user.name} (ID: {current_user.id})")
+        print(f"DEBUG: Total posts in DB: {total_posts_before_filter}")
+        print(f"DEBUG: User threads: {list(user_threads)}")
+        print(f"DEBUG: Friends: {list(friends)}")
+        print(f"DEBUG: Filtered posts count: {filtered_posts_count}")
+        
+        # Apply pagination
+        paginator = Paginator(posts_queryset, limit)
+        posts_page = paginator.get_page(page)
+        
+        # Serialize the posts
+        serializer = PostSerializer(posts_page.object_list, many=True)
+        
+        # Return paginated response
+        return JsonResponse({
+            'posts': serializer.data,
+            'pagination': {
+                'current_page': page,
+                'total_pages': paginator.num_pages,
+                'total_posts': paginator.count,
+                'has_next': posts_page.has_next(),
+                'has_previous': posts_page.has_previous(),
+                'next_page': page + 1 if posts_page.has_next() else None,
+                'previous_page': page - 1 if posts_page.has_previous() else None,
+            },
+            'feed_info': {
+                'user_threads_count': len(user_threads),
+                'friends_count': len(friends),
+                'filtering_applied': True,
+                'user_id': str(current_user.id),
+                'total_posts_in_db': total_posts_before_filter,
+                'filtered_posts_count': filtered_posts_count
+            }
+        }, safe=False)
+        
+    except ValueError:
+        return JsonResponse({'error': 'Invalid page or limit parameter'}, status=status.HTTP_400_BAD_REQUEST)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+# Public feed - shows all posts (for admin/public viewing)
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def public_post_list(request):
+    try:
+        # Get pagination parameters
+        page = int(request.GET.get('page', 1))
+        limit = int(request.GET.get('limit', 10))  # Default 10 posts per page
+        
+        # Ensure reasonable limits
+        limit = min(limit, 50)  # Max 50 posts per request
+        
+        # Get all posts ordered by creation date (newest first)
+        posts_queryset = Post.objects.all().order_by('-created_at')
+        
+        # Apply pagination
+        paginator = Paginator(posts_queryset, limit)
+        posts_page = paginator.get_page(page)
+        
+        # Serialize the posts
+        serializer = PostSerializer(posts_page.object_list, many=True)
+        
+        # Return paginated response
+        return JsonResponse({
+            'posts': serializer.data,
+            'pagination': {
+                'current_page': page,
+                'total_pages': paginator.num_pages,
+                'total_posts': paginator.count,
+                'has_next': posts_page.has_next(),
+                'has_previous': posts_page.has_previous(),
+                'next_page': page + 1 if posts_page.has_next() else None,
+                'previous_page': page - 1 if posts_page.has_previous() else None,
+            },
+            'feed_info': {
+                'filtering_applied': False,
+                'public_feed': True
+            }
+        }, safe=False)
+        
+    except ValueError:
+        return JsonResponse({'error': 'Invalid page or limit parameter'}, status=status.HTTP_400_BAD_REQUEST)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 # Post detail with like status
 @api_view(['GET'])
@@ -36,6 +173,7 @@ def post_detail(request, pk):
 
 # Create a post (body only or with thread)
 @api_view(['POST'])
+@permission_classes([IsAuthenticated])
 def post_create(request):
     serializer = PostCreateSerializer(data=request.data)
     if not serializer.is_valid():
@@ -231,15 +369,28 @@ def thread_detail(request, pk):
     try:
         thread = Thread.objects.get(pk=pk, is_active=True)
         
-        # Get thread posts sorted by day number (ascending)
-        posts = Post.objects.filter(
-            user_thread__thread=thread
-        ).order_by('day_number', 'created_at')  # Sort by day number first, then by creation time
+        # Check if filtering by a specific user
+        user_id = request.GET.get('user_id')
         
-        # Check if user is in this thread
-        user_thread = None
-        if request.user.is_authenticated:
-            user_thread = UserThread.objects.filter(thread=thread, user=request.user).first()
+        if user_id:
+            # Filter posts by specific user
+            posts = Post.objects.filter(
+                user_thread__thread=thread,
+                created_by__id=user_id
+            ).order_by('day_number', 'created_at')  # Sort by day number first, then by creation time
+            
+            # Get the specific user's thread participation
+            user_thread = UserThread.objects.filter(thread=thread, user__id=user_id).first()
+        else:
+            # Get all thread posts sorted by day number (ascending)
+            posts = Post.objects.filter(
+                user_thread__thread=thread
+            ).order_by('day_number', 'created_at')  # Sort by day number first, then by creation time
+            
+            # Check if current user is in this thread
+            user_thread = None
+            if request.user.is_authenticated:
+                user_thread = UserThread.objects.filter(thread=thread, user=request.user).first()
         
         thread_serializer = ThreadSerializer(thread)
         posts_serializer = PostSerializer(posts, many=True)
@@ -248,9 +399,78 @@ def thread_detail(request, pk):
         return JsonResponse({
             'thread': thread_serializer.data,
             'posts': posts_serializer.data,
-            'user_thread': user_thread_serializer.data if user_thread_serializer else None
+            'user_thread': user_thread_serializer.data if user_thread_serializer else None,
+            'filtered_by_user': user_id is not None
         }, safe=False)
     except Thread.DoesNotExist:
         return JsonResponse({'error': 'Thread not found'}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+# ========== SIDEBAR API ENDPOINTS ==========
+
+# Get recently active threads
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def recent_threads(request):
+    try:
+        # Get threads with recent posts from user's friends or public threads
+        recent_threads = Thread.objects.filter(
+            is_active=True,
+            posts__created_at__gte=timezone.now() - timezone.timedelta(days=7)
+        ).annotate(
+            participants_count=Count('user_threads', distinct=True),
+            posts_count=Count('posts', distinct=True),
+            latest_post=Max('posts__created_at')
+        ).order_by('-latest_post')[:10]
+        
+        # Add name field to match frontend expectations
+        threads_data = []
+        for thread in recent_threads:
+            thread_data = {
+                'id': thread.id,
+                'name': thread.topic,  # Using topic as name
+                'description': thread.description,
+                'participants_count': thread.participants_count,
+                'posts_count': thread.posts_count,
+                'latest_post': thread.latest_post
+            }
+            threads_data.append(thread_data)
+        
+        return JsonResponse(threads_data, safe=False)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+# Get suggested threads
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def suggested_threads(request):
+    try:
+        # Get threads the user hasn't joined yet
+        user_thread_ids = UserThread.objects.filter(user=request.user).values_list('thread_id', flat=True)
+        
+        suggested_threads = Thread.objects.filter(
+            is_active=True
+        ).exclude(
+            id__in=user_thread_ids
+        ).annotate(
+            participants_count=Count('user_threads', distinct=True),
+            posts_count=Count('posts', distinct=True)
+        ).order_by('-participants_count')[:10]
+        
+        # Add name field to match frontend expectations
+        threads_data = []
+        for thread in suggested_threads:
+            thread_data = {
+                'id': thread.id,
+                'name': thread.topic,  # Using topic as name
+                'description': thread.description,
+                'participants_count': thread.participants_count,
+                'posts_count': thread.posts_count
+            }
+            threads_data.append(thread_data)
+        
+        return JsonResponse(threads_data, safe=False)
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

@@ -3,7 +3,8 @@ from . import api
 
 urlpatterns = [
     # Post endpoints
-    path('', api.post_list, name='post_list'),
+    path('', api.post_list, name='post_list'),  # Personalized feed (authenticated users only)
+    path('public/', api.public_post_list, name='public_post_list'),  # Public feed (all posts)
     path('post/<str:pk>/', api.post_detail, name='post_detail'),
     path('create/', api.post_create, name='post_create'),
     path('<str:pk>/like/', api.post_like, name='post_like'),
@@ -17,4 +18,8 @@ urlpatterns = [
     path('threads/join/', api.thread_join, name='thread_join'),
     path('threads/my/', api.user_threads, name='user_threads'),
     path('threads/<str:pk>/', api.thread_detail, name='thread_detail'),
+    
+    # Sidebar endpoints
+    path('recent-threads/', api.recent_threads, name='recent_threads'),
+    path('suggested-threads/', api.suggested_threads, name='suggested_threads'),
 ]

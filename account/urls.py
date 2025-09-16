@@ -26,4 +26,8 @@ urlpatterns = [
      path('friends/<uuid:pk>/cancel/', api.cancel_friendship_request, name='cancel_friendship_request'),
      path('friends/<uuid:pk>/<str:status>/', api.handle_request, name='handle_request'),
      path('friends/profile/<uuid:pk>/<str:status>/', api.handle_request_profile, name='handle_request_profile'),
+     
+     # Sidebar endpoints
+     path('recent-friends/', api.recent_friends, name='recent_friends'),
+     path('suggested-friends/', api.suggested_friends, name='suggested_friends'),
 ]

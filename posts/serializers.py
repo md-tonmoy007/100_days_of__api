@@ -45,8 +45,8 @@ class UserThreadSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = UserThread
-        fields = ('id', 'thread', 'user', 'current_day', 'is_completed', 
-                 'started_at', 'completed_at', 'progress_percentage')
+        fields = ('id', 'thread', 'user', 'current_day', 'posts_count', 'is_completed', 
+                 'started_at', 'completed_at', 'progress_percentage', 'is_active')
 
 
 class PostSerializer(serializers.ModelSerializer):

@@ -24,6 +24,7 @@ from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.utils.encoding import smart_str, force_str, smart_bytes, DjangoUnicodeDecodeError
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 from django.core.exceptions import ObjectDoesNotExist
+from django.db import models
 
 
 class MeAPIView(APIView):
@@ -438,5 +439,96 @@ def cancel_friendship_request(request, pk):
         return JsonResponse({'message': 'Friendship request cancelled.'}, status=200)
     except FriendshipRequest.DoesNotExist:
         return JsonResponse({'error': 'No pending request found to cancel.'}, status=404)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+# ========== SIDEBAR API ENDPOINTS ==========
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def recent_friends(request):
+    """
+    Get friends who have posted recently
+    """
+    try:
+        from django.db.models import Count, Max
+        from django.utils import timezone
+        from posts.models import Post
+        
+        # Get user's friends who have posted in the last 7 days
+        recent_post_date = timezone.now() - timezone.timedelta(days=7)
+        
+        friends_with_recent_posts = User.objects.filter(
+            id__in=request.user.friends.all(),
+            post_set__created_at__gte=recent_post_date
+        ).annotate(
+            last_post_date=Max('post_set__created_at')
+        ).order_by('-last_post_date')[:10]
+        
+        friends_data = []
+        for friend in friends_with_recent_posts:
+            friend_data = {
+                'id': friend.id,
+                'name': friend.name,
+                'email': friend.email,
+                'avatar': friend.avatar.url if friend.avatar else None,
+                'last_post_date': friend.last_post_date
+            }
+            friends_data.append(friend_data)
+        
+        return JsonResponse(friends_data, safe=False)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def suggested_friends(request):
+    """
+    Get friend suggestions based on mutual friends and common threads
+    """
+    try:
+        from django.db.models import Count
+        from posts.models import UserThread
+        
+        # Get users who are not already friends and not the current user
+        current_user_friends = request.user.friends.all()
+        friend_ids = [friend.id for friend in current_user_friends]
+        friend_ids.append(request.user.id)  # Exclude current user
+        
+        # Get users with common threads
+        user_thread_ids = UserThread.objects.filter(user=request.user).values_list('thread_id', flat=True)
+        
+        suggested_users = User.objects.exclude(
+            id__in=friend_ids
+        ).annotate(
+            common_threads=Count('userthread__thread__id', filter=models.Q(userthread__thread__id__in=user_thread_ids), distinct=True),
+            mutual_friends=Count('friends', filter=models.Q(friends__in=current_user_friends), distinct=True)
+        ).filter(
+            models.Q(common_threads__gt=0) | models.Q(mutual_friends__gt=0)
+        ).order_by('-mutual_friends', '-common_threads')[:10]
+        
+        suggestions_data = []
+        for user in suggested_users:
+            # Check if a friend request is already sent
+            request_sent = FriendshipRequest.objects.filter(
+                created_by=request.user,
+                created_for=user,
+                status=FriendshipRequest.SENT
+            ).exists()
+            
+            user_data = {
+                'id': user.id,
+                'name': user.name,
+                'email': user.email,
+                'avatar': user.avatar.url if user.avatar else None,
+                'mutual_friends': user.mutual_friends,
+                'common_threads': user.common_threads,
+                'request_sent': request_sent
+            }
+            suggestions_data.append(user_data)
+        
+        return JsonResponse(suggestions_data, safe=False)
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
