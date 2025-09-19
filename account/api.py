@@ -452,31 +452,41 @@ def recent_friends(request):
     Get friends who have posted recently
     """
     try:
-        from django.db.models import Count, Max
+        from django.db.models import Max
         from django.utils import timezone
         from posts.models import Post
-        
-        # Get user's friends who have posted in the last 7 days
-        recent_post_date = timezone.now() - timezone.timedelta(days=7)
-        
-        friends_with_recent_posts = User.objects.filter(
-            id__in=request.user.friends.all(),
-            post_set__created_at__gte=recent_post_date
+
+        # consider posts in the last N days (7 by default)
+        recent_window_days = 7
+        recent_threshold = timezone.now() - timezone.timedelta(days=recent_window_days)
+
+        # Get friend IDs (QuerySet -> list of ids)
+        friend_qs = request.user.friends.all()
+        if not friend_qs.exists():
+            return JsonResponse([], safe=False)
+
+        # Annotate each friend with their latest post time (if any)
+        friends_with_latest = User.objects.filter(
+            id__in=friend_qs.values_list('id', flat=True)
         ).annotate(
-            last_post_date=Max('post_set__created_at')
-        ).order_by('-last_post_date')[:10]
-        
+            last_post_date=Max('post__created_at')
+        ).order_by('-last_post_date')[:20]
+
+        # Filter to only those with a recent post within the threshold
+        recent_friends = [f for f in friends_with_latest if f.last_post_date and f.last_post_date >= recent_threshold]
+
         friends_data = []
-        for friend in friends_with_recent_posts:
+        for friend in recent_friends:
             friend_data = {
-                'id': friend.id,
+                'id': str(friend.id),
                 'name': friend.name,
                 'email': friend.email,
-                'avatar': friend.avatar.url if friend.avatar else None,
-                'last_post_date': friend.last_post_date
+                'avatar': friend.avatar.url if getattr(friend, 'avatar', None) else None,
+                # ensure ISO format string for frontend
+                'last_post_date': friend.last_post_date.isoformat() if friend.last_post_date else None,
             }
             friends_data.append(friend_data)
-        
+
         return JsonResponse(friends_data, safe=False)
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
@@ -503,7 +513,7 @@ def suggested_friends(request):
         suggested_users = User.objects.exclude(
             id__in=friend_ids
         ).annotate(
-            common_threads=Count('userthread__thread__id', filter=models.Q(userthread__thread__id__in=user_thread_ids), distinct=True),
+            common_threads=Count('user_threads__thread__id', filter=models.Q(user_threads__thread__id__in=user_thread_ids), distinct=True),
             mutual_friends=Count('friends', filter=models.Q(friends__in=current_user_friends), distinct=True)
         ).filter(
             models.Q(common_threads__gt=0) | models.Q(mutual_friends__gt=0)

@@ -418,11 +418,11 @@ def recent_threads(request):
         # Get threads with recent posts from user's friends or public threads
         recent_threads = Thread.objects.filter(
             is_active=True,
-            posts__created_at__gte=timezone.now() - timezone.timedelta(days=7)
+            participants__posts__created_at__gte=timezone.now() - timezone.timedelta(days=7)
         ).annotate(
-            participants_count=Count('user_threads', distinct=True),
-            posts_count=Count('posts', distinct=True),
-            latest_post=Max('posts__created_at')
+            active_participants_count=Count('participants', distinct=True),
+            total_posts_count=Count('participants__posts', distinct=True),
+            latest_post=Max('participants__posts__created_at')
         ).order_by('-latest_post')[:10]
         
         # Add name field to match frontend expectations
@@ -432,8 +432,8 @@ def recent_threads(request):
                 'id': thread.id,
                 'name': thread.topic,  # Using topic as name
                 'description': thread.description,
-                'participants_count': thread.participants_count,
-                'posts_count': thread.posts_count,
+                'participants_count': thread.active_participants_count,
+                'posts_count': thread.total_posts_count,
                 'latest_post': thread.latest_post
             }
             threads_data.append(thread_data)
@@ -455,9 +455,9 @@ def suggested_threads(request):
         ).exclude(
             id__in=user_thread_ids
         ).annotate(
-            participants_count=Count('user_threads', distinct=True),
-            posts_count=Count('posts', distinct=True)
-        ).order_by('-participants_count')[:10]
+            active_participants_count=Count('participants', distinct=True),
+            total_posts_count=Count('participants__posts', distinct=True)
+        ).order_by('-active_participants_count')[:10]
         
         # Add name field to match frontend expectations
         threads_data = []
@@ -466,8 +466,8 @@ def suggested_threads(request):
                 'id': thread.id,
                 'name': thread.topic,  # Using topic as name
                 'description': thread.description,
-                'participants_count': thread.participants_count,
-                'posts_count': thread.posts_count
+                'participants_count': thread.active_participants_count,
+                'posts_count': thread.total_posts_count
             }
             threads_data.append(thread_data)
         
